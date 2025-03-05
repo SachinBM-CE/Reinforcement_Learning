@@ -5,7 +5,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
-
+# Used to prevent the agent from moving out of bounds in the grid.
 def clamp(v, minimal_value, maximal_value):
     return min(max(v, minimal_value), maximal_value)
 
@@ -44,16 +44,19 @@ class GridWorldEnv(gym.Env):
             list("gt g"),
         ]
 
-        # ----------------------------------------------------------
         # TODO: Define your action_space and observation_space here
+        
         # https://www.gymlibrary.dev/api/spaces/#discrete
+        # 0: Up, 1:Right, 2: Down, 3:Left
         self.action_space = spaces.Discrete(4)
+        
         # https://www.gymlibrary.dev/api/spaces/#box
-        self.observation_space = spaces.Box(0, 4, shape=(2,),
-                                            dtype=np.float32)
-        # ----------------------------------------------------------
+        # 2D coordinate [y,x] where y: row_num, x: col_num
+        self.observation_space = spaces.Box(low=0, high=4, shape=(2,),
+                                            dtype=np.int32)
 
         self.agent_position = [0, 0]
+
 
     def reset(
             self,
@@ -63,51 +66,56 @@ class GridWorldEnv(gym.Env):
     ):
         super().reset(seed=seed)
         
-        # -------------------------------------
         # TODO: Write your implementation here
+        
         # Reset agent to the start position
         self.agent_position = [0, 0]
-        # -------------------------------------
 
         return self._observe(), {}
 
-    def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
-        reward = None
-        done = None
 
-        # -------------------------------------
+    def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
+
         # TODO: Write your implementation here
         
-        x, y = self.agent_position
+        # Validates the action input (must be within [0,3]).
+        assert self.action_space.contains(action)
+        
+        match action:
+            case 0:  # To move up => y-1
+                self.agent_position[0] -= 1
+            case 1:  # To move right => x+1
+                self.agent_position[1] += 1
+            case 2:  # To move down => y+1
+                self.agent_position[0] += 1
+            case _:  # To move left => x-1
+                self.agent_position[1] -= 1
 
-        # Define movement based on action
-        if action == 0:  # Up
-            x = clamp(x - 1, 0, 3)
-        elif action == 1:  # Right
-            y = clamp(y + 1, 0, 3)
-        elif action == 2:  # Down
-            x = clamp(x + 1, 0, 3)
-        elif action == 3:  # Left
-            y = clamp(y - 1, 0, 3)
+        # Prevents the agent from moving out of the grid (coordinates are clamped between [0,3])                
+        self.agent_position[0] = clamp(self.agent_position[0], 0, 3)
+        self.agent_position[1] = clamp(self.agent_position[1], 0, 3)
+        
+        reward, done = 0, False
+        if 't' == self.map[self.agent_position[0]][self.agent_position[1]]:
+            reward, done = -1, True
+        if 'g' == self.map[self.agent_position[0]][self.agent_position[1]]:
+            reward, done = +1, True
 
-        # Update agent position
-        self.agent_position = [x, y]
+        # no trap or no goal => 0 reward, continue episode
+        reward, done = 0, False
 
-        # Determine reward and episode termination
-        current_tile = self.map[x][y]
-        reward = 0
-        done = False
+        # trap => -1 reward, terminate episode 
+        if 't' == self.map[self.agent_position[0]][self.agent_position[1]]:
+            reward, done = -1, True
+        # goal => +1 reward, terminate episode    
+        if 'g' == self.map[self.agent_position[0]][self.agent_position[1]]:
+            reward, done = +1, True
 
-        if current_tile == 'G':  # Goal
-            reward = 1
-            done = True
-        elif current_tile == 'T':  # Trap
-            reward = -1
-            done = True
-        # -------------------------------------
-
+        # get the agent’s current position in the grid after taking an action
         observation = self._observe()
+        
         return observation, reward, done, False, {}
+
 
     def render(self):
         rendered_map = copy.deepcopy(self.map)
@@ -118,8 +126,10 @@ class GridWorldEnv(gym.Env):
         print("--------")
         return None
 
+
     def close(self):
         pass
+
 
     def _observe(self):
         return np.array(self.agent_position)
