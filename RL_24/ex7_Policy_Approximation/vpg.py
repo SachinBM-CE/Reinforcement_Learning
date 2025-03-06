@@ -6,6 +6,7 @@ import gymnasium as gym
 
 from utils import episode_reward_plot
 
+import time
 
 def compute_returns(rewards, next_value, discount):
     """ Compute returns based on episode rewards.
@@ -26,7 +27,14 @@ def compute_returns(rewards, next_value, discount):
     """
 
     # TODO (3.)
-    return None
+    returns = []
+    R = next_value
+    for reward in reversed(rewards):
+        # Return is computed in constant time O(T) without recalculating past steps
+        R = reward + discount*R
+        returns.insert(0,R)
+
+    return returns
 
 
 class TransitionMemory:
@@ -35,25 +43,42 @@ class TransitionMemory:
     def __init__(self, gamma):
 
         # TODO (2.)
-        pass
+        self.gamma = gamma
+        # Lists to store values for a full episode
+        self.observations = []
+        self.actions = []
+        self.rewards = []
+        self.logprobs = []
+        self.returns = []
+
 
     def put(self, obs, action, reward, logprob):
         """Put a transition into the memory."""
 
         # TODO
-        pass
+        self.observations.append(obs)  # current observation
+        self.actions.append(action)    # selected action
+        self.rewards.append(reward)    # received reward
+        self.logprobs.append(logprob)  # logprob of selecting the action
+
 
     def get(self):
         """Get all stored transition attributes in the form of lists."""
 
         # TODO
-        return None
+        return self.observations, self.actions, self.rewards, self.logprobs, self.returns
+
 
     def clear(self):
         """Reset the transition memory."""
 
         # TODO
-        pass
+        self.observations.clear()
+        self.actions.clear()
+        self.rewards.clear()
+        self.logprobs.clear()
+        self.returns.clear()
+
 
     def finish_trajectory(self, next_value):
         """Call on end of an episode. Will perform episode return or advantage or generalized advantage estimation (later exercise).
@@ -65,7 +90,7 @@ class TransitionMemory:
         """
 
         # TODO
-        pass
+        self.returns = compute_returns(self.rewards, next_value, self.gamma)
 
 
 class ActorNetwork(nn.Module):
@@ -75,12 +100,17 @@ class ActorNetwork(nn.Module):
         super(ActorNetwork, self).__init__()
 
         # TODO (1.)
-        pass
+        self.net = nn.Sequential(
+            nn.Linear(num_observations, 256),
+            nn.ReLU(),
+            nn.Linear(256, num_actions),
+            nn.Softmax(dim=-1)
+        )
 
     def forward(self, obs):
 
         # TODO
-        return None
+        return self.net(obs)
 
 
 class VPG:
@@ -133,19 +163,31 @@ class VPG:
         for timestep in range(1, total_timesteps + 1):
 
             # TODO Do one step, put into transition buffer, and store reward in episode_rewards for plotting
-            terminated, truncated = None, None
+            action, logprob = self.predict(obs, train_returns=True)
+            next_obs, reward, terminated, truncated, _ = self.env.step(action)
+            self.memory.put(obs, action, reward, logprob)
+            episode_rewards.append(reward) # Immediate reward
+            obs = next_obs
 
             if terminated or truncated:
 
                 # TODO reset environment
+                overall_rewards.append(sum(episode_rewards))
+                obs, _ = self.env.reset()
 
                 # TODO finish trajectory
-
+                self.memory.finish_trajectory(0.0)
+                episode_rewards = []
                 episodes_counter += 1
 
                 if episodes_counter == self.episodes_update:
 
                     # TODO optimize the actor
+                    obs_lst, act_lst, rew_lst, logprob_lst, ret_lst = self.memory.get()
+                    loss = self.calc_actor_loss(logprob_lst, ret_lst)
+                    self.optim_actor.zero_grad()
+                    loss.backward()
+                    self.optim_actor.step()
 
                     # Clear memory
                     episodes_counter = 0
@@ -155,12 +197,16 @@ class VPG:
             if timestep % 500 == 0:
                 episode_reward_plot(overall_rewards, timestep, window_size=5, step_size=1, wait=timestep == total_timesteps)
 
+
     @staticmethod
     def calc_actor_loss(logprob_lst, return_lst):
         """Calculate actor "loss" for one batch of transitions."""
 
         # TODO (5.)
-        return None
+        logprobs = torch.stack([torch.tensor(lp, dtype=torch.float32, requires_grad=True) for lp in logprob_lst])
+        returns = torch.tensor(return_lst, dtype=torch.float32)
+        return -(logprobs*returns).mean()
+
 
     def predict(self, obs, train_returns=False):
         """Sample the agents action based on a given observation.
@@ -174,19 +220,23 @@ class VPG:
         """
 
         # TODO (4.)
+        obs_tensor = torch.tensor(obs, dtype = torch.float32)
+        action_probs = self.actor_net(obs_tensor)
+        dist = Categorical(action_probs)
+        action = dist.sample()
+        logprob = dist.log_prob(action)
 
         if train_returns:
-
             # TODO Return action, logprob
-            return None
-        else:
+            return action.item(), logprob.item()
 
+        else:
             # TODO Return action
-            return None
+            return action.item()
 
 
 if __name__ == '__main__':
     env_id = "CartPole-v1"
     _env = gym.make(env_id)
     vpg = VPG(_env)
-    vpg.learn(100000)
+    vpg.learn(10000)
