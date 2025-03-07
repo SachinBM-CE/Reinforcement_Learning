@@ -4,9 +4,10 @@ import torch.optim as optim
 from torch.distributions import Categorical
 import gymnasium as gym
 
-from utils import episode_reward_plot
+from utils import episode_reward_plot, visualize_agent
 
 import time
+import os
 
 def compute_returns(rewards, next_value, discount):
     """ Compute returns based on episode rewards.
@@ -27,14 +28,12 @@ def compute_returns(rewards, next_value, discount):
     """
 
     # TODO (3.)
-    returns = []
-    R = next_value
+    return_lst = []
+    ret = next_value
     for reward in reversed(rewards):
-        # Return is computed in constant time O(T) without recalculating past steps
-        R = reward + discount*R
-        returns.insert(0,R)
-
-    return returns
+        ret = reward + discount * ret
+        return_lst.append(ret)
+    return return_lst[::-1]
 
 
 class TransitionMemory:
@@ -44,40 +43,33 @@ class TransitionMemory:
 
         # TODO (2.)
         self.gamma = gamma
+        self.traj_start = 0
         # Lists to store values for a full episode
-        self.observations = []
-        self.actions = []
-        self.rewards = []
-        self.logprobs = []
-        self.returns = []
-
+        self.obs_lst, self.action_lst, self.reward_lst, self.logprob_lst, self.return_lst = [], [], [], [], []
 
     def put(self, obs, action, reward, logprob):
         """Put a transition into the memory."""
 
         # TODO
-        self.observations.append(obs)  # current observation
-        self.actions.append(action)    # selected action
-        self.rewards.append(reward)    # received reward
-        self.logprobs.append(logprob)  # logprob of selecting the action
+        self.obs_lst.append(obs)  # current observation
+        self.action_lst.append(action)    # selected action
+        self.reward_lst.append(reward)    # received reward
+        self.logprob_lst.append(logprob)  # logprob of selecting the action
 
 
     def get(self):
         """Get all stored transition attributes in the form of lists."""
 
         # TODO
-        return self.observations, self.actions, self.rewards, self.logprobs, self.returns
+        return self.obs_lst, self.action_lst, self.reward_lst, self.logprob_lst, self.return_lst
 
 
     def clear(self):
         """Reset the transition memory."""
 
         # TODO
-        self.observations.clear()
-        self.actions.clear()
-        self.rewards.clear()
-        self.logprobs.clear()
-        self.returns.clear()
+        self.obs_lst, self.action_lst, self.reward_lst, self.logprob_lst, self.return_lst = [], [], [], [], []
+        self.traj_start = 0
 
 
     def finish_trajectory(self, next_value):
@@ -90,7 +82,10 @@ class TransitionMemory:
         """
 
         # TODO
-        self.returns = compute_returns(self.rewards, next_value, self.gamma)
+        reward_traj = self.reward_lst[self.traj_start:]
+        return_traj = compute_returns(reward_traj, next_value, self.gamma)
+        self.return_lst.extend(return_traj)
+        self.traj_start = len(self.reward_lst)
 
 
 class ActorNetwork(nn.Module):
@@ -101,9 +96,11 @@ class ActorNetwork(nn.Module):
 
         # TODO (1.)
         self.net = nn.Sequential(
-            nn.Linear(num_observations, 256),
+            nn.Linear(num_observations, 128),
             nn.ReLU(),
-            nn.Linear(256, num_actions),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, num_actions),
             nn.Softmax(dim=-1)
         )
 
@@ -116,7 +113,7 @@ class ActorNetwork(nn.Module):
 class VPG:
     """The vanilla policy gradient (VPG) approach."""
 
-    def __init__(self, env, episodes_update=5, gamma=0.99, lr=0.01):
+    def __init__(self, env, episodes_update=10, gamma=0.99, lr=0.001):
         """ Constructor.
         
         Parameters
@@ -142,6 +139,7 @@ class VPG:
         self.actor_net = ActorNetwork(self.obs_dim, self.act_dim)
         self.optim_actor = optim.Adam(self.actor_net.parameters(), lr=lr)
 
+
     def learn(self, total_timesteps):
         """Train the VPG agent.
         
@@ -164,27 +162,36 @@ class VPG:
 
             # TODO Do one step, put into transition buffer, and store reward in episode_rewards for plotting
             action, logprob = self.predict(obs, train_returns=True)
-            next_obs, reward, terminated, truncated, _ = self.env.step(action)
+            obs_, reward, terminated, truncated, _ = self.env.step(action)
             self.memory.put(obs, action, reward, logprob)
             episode_rewards.append(reward) # Immediate reward
-            obs = next_obs
+
+            # Update current obs
+            obs = obs_
 
             if terminated or truncated:
 
                 # TODO reset environment
-                overall_rewards.append(sum(episode_rewards))
                 obs, _ = self.env.reset()
+
+                overall_rewards.append(sum(episode_rewards))
+                episode_rewards = []
 
                 # TODO finish trajectory
                 self.memory.finish_trajectory(0.0)
-                episode_rewards = []
+
                 episodes_counter += 1
 
                 if episodes_counter == self.episodes_update:
 
                     # TODO optimize the actor
-                    obs_lst, act_lst, rew_lst, logprob_lst, ret_lst = self.memory.get()
+                    # Get transitions from memory
+                    _, _, _, logprob_lst, ret_lst = self.memory.get()
+
+                    # Calculate loss
                     loss = self.calc_actor_loss(logprob_lst, ret_lst)
+
+                    # Back-propagate and optimize
                     self.optim_actor.zero_grad()
                     loss.backward()
                     self.optim_actor.step()
@@ -203,9 +210,11 @@ class VPG:
         """Calculate actor "loss" for one batch of transitions."""
 
         # TODO (5.)
+        # Note: negative sign, as torch optimizers per default perform gradients descent, not ascent
         logprobs = torch.stack([torch.tensor(lp, dtype=torch.float32, requires_grad=True) for lp in logprob_lst])
         returns = torch.tensor(return_lst, dtype=torch.float32)
         return -(logprobs*returns).mean()
+        #return -(torch.Tensor(return_lst) * torch.stack(logprob_lst)).mean()
 
 
     def predict(self, obs, train_returns=False):
@@ -220,11 +229,10 @@ class VPG:
         """
 
         # TODO (4.)
-        obs_tensor = torch.tensor(obs, dtype = torch.float32)
-        action_probs = self.actor_net(obs_tensor)
-        dist = Categorical(action_probs)
-        action = dist.sample()
-        logprob = dist.log_prob(action)
+        probs = self.actor_net(torch.Tensor(obs))
+        policy = Categorical(probs=probs)
+        action = policy.sample()
+        logprob = policy.log_prob(action)
 
         if train_returns:
             # TODO Return action, logprob
@@ -235,8 +243,35 @@ class VPG:
             return action.item()
 
 
+    def save_model(self, path="vpg_agent.pth"):
+        torch.save({
+            'actor_state_dict': self.actor_net.state_dict(),
+            'optimizer_state_dict': self.optim_actor.state_dict(),
+        }, path)
+        print(f"Model saved to {os.path.abspath(path)}")
+
+
+    def load_model(self, path="vpg_agent.pth"):
+        checkpoint = torch.load(path)
+        self.actor_net.load_state_dict(checkpoint['actor_state_dict'])
+        self.optim_actor.load_state_dict(checkpoint['optimizer_state_dict'])
+        print(f"Model loaded from {os.path.abspath(path)}")
+
+
 if __name__ == '__main__':
     env_id = "CartPole-v1"
-    _env = gym.make(env_id)
-    vpg = VPG(_env)
-    vpg.learn(10000)
+    _env = gym.make(env_id) # , render_mode="human"
+    vpg = VPG(_env)         # runs VPG.__init__()
+    vpg.learn(1000000)
+
+    visualize_agent(gym.make("CartPole-v1", render_mode='human'), vpg)
+
+##    vpg.save_model("vpg_agent.pth")
+##    vpg.load_model("vpg_agent.pth")  # Load the trained model
+##    obs, _ = _env.reset()
+##    done = False
+##
+##    while not done:
+##        action = vpg.predict(obs)
+##        obs, reward, terminated, truncated, _ = _env.step(action)
+##        done = terminated or truncated

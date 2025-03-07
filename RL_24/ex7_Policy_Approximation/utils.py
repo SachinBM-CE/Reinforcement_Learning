@@ -58,4 +58,18 @@ def episode_reward_plot(rewards, frame_idx, window_size=5, step_size=1, wait=Fal
     fig.canvas.draw()
     fig.canvas.flush_events()
     if wait:
-        time.sleep(60)
+        time.sleep(10)
+
+
+def visualize_agent(env, agent, timesteps=500):
+    """ Visualize an agent performing inside a Gym environment. """
+    obs, _ = env.reset()
+    for timestep in range(1, timesteps + 1):
+        env.render()
+        action = agent.predict(obs)
+        obs, reward, terminated, truncated, _ = env.step(action)
+        if terminated or truncated:
+            obs, _ = env.reset()
+
+        # 30 FPS
+        time.sleep(0.033)
