@@ -113,7 +113,7 @@ class ActorNetwork(nn.Module):
 class VPG:
     """The vanilla policy gradient (VPG) approach."""
 
-    def __init__(self, env, episodes_update=10, gamma=0.99, lr=0.001):
+    def __init__(self, env, episodes_update=10, gamma=0.99, lr=0.01):
         """ Constructor.
         
         Parameters
@@ -211,10 +211,10 @@ class VPG:
 
         # TODO (5.)
         # Note: negative sign, as torch optimizers per default perform gradients descent, not ascent
-        logprobs = torch.stack([torch.tensor(lp, dtype=torch.float32, requires_grad=True) for lp in logprob_lst])
+        logprobs = torch.stack(logprob_lst)
         returns = torch.tensor(return_lst, dtype=torch.float32)
+        # returns = (returns - returns.mean()) / (returns.std() + 1e-8)
         return -(logprobs*returns).mean()
-        #return -(torch.Tensor(return_lst) * torch.stack(logprob_lst)).mean()
 
 
     def predict(self, obs, train_returns=False):
@@ -236,7 +236,7 @@ class VPG:
 
         if train_returns:
             # TODO Return action, logprob
-            return action.item(), logprob.item()
+            return action.item(), logprob
 
         else:
             # TODO Return action
@@ -262,7 +262,7 @@ if __name__ == '__main__':
     env_id = "CartPole-v1"
     _env = gym.make(env_id) # , render_mode="human"
     vpg = VPG(_env)         # runs VPG.__init__()
-    vpg.learn(1000000)
+    vpg.learn(150000)
 
     visualize_agent(gym.make("CartPole-v1", render_mode='human'), vpg)
 
