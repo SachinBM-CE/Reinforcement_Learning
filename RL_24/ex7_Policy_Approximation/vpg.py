@@ -98,9 +98,7 @@ class ActorNetwork(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(num_observations, 128),
             nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, num_actions),
+            nn.Linear(128, num_actions),
             nn.Softmax(dim=-1)
         )
 
@@ -229,7 +227,7 @@ class VPG:
         """
 
         # TODO (4.)
-        probs = self.actor_net(torch.Tensor(obs))
+        probs = self.actor_net(torch.Tensor(obs)) 
         policy = Categorical(probs=probs)
         action = policy.sample()
         logprob = policy.log_prob(action)
