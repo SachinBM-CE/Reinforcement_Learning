@@ -20,7 +20,7 @@ def compute_advantages(returns, values):
     """
 
     # TODO 1.4: Compute the advantages using equation 1.
-    return []
+    return [r - v for r, v in zip(returns, values)]
 
 
 def compute_generalized_advantages(rewards, values, next_value, discount, lamb):
@@ -46,7 +46,18 @@ def compute_generalized_advantages(rewards, values, next_value, discount, lamb):
     """
 
     # TODO 1.8: Compute GAE using equation 3.
-    return []
+    # t: index for current time step [0, T-1]
+    # l: index for steps ahead
+    # For each t, l runs from 0 to T-t-1 (Summing over all future timesteps)
+    GAE = 0
+    advantages = []  # List to store computed GAEs in all the iterations
+    # Loop from the end of the episode
+    for r, v in zip(reversed(rewards), reversed(values)):
+        TD_error = r + discount*next_value - v  # Temporal Difference Error
+        GAE = TD_error + discount*lamb*GAE  # Recursive update of running total
+        advantages.append(GAE)
+        next_value = v  # value for next iteration
+    return advantages[::-1]  # restore original time order
 
 
 class TransitionMemoryAdvantage:
