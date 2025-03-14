@@ -8,6 +8,7 @@ from utils import episode_reward_plot, visualize_agent
 
 import time
 import os
+import neptune
 
 def compute_returns(rewards, next_value, discount):
     """ Compute returns based on episode rewards.
@@ -91,14 +92,14 @@ class TransitionMemory:
 class ActorNetwork(nn.Module):
     """Neural Network used to learn the policy."""
 
-    def __init__(self, num_observations, num_actions):
+    def __init__(self, num_observations, num_actions, hidden_size=128):
         super(ActorNetwork, self).__init__()
 
         # TODO (1.)
         self.net = nn.Sequential(
-            nn.Linear(num_observations, 128),
+            nn.Linear(num_observations, hidden_size),
             nn.ReLU(),
-            nn.Linear(128, num_actions),
+            nn.Linear(hidden_size, num_actions),
             nn.Softmax(dim=-1)
         )
 
@@ -111,7 +112,7 @@ class ActorNetwork(nn.Module):
 class VPG:
     """The vanilla policy gradient (VPG) approach."""
 
-    def __init__(self, env, episodes_update=10, gamma=0.99, lr=0.01):
+    def __init__(self, env, episodes_update=10, gamma=0.99, lr=0.01, hidden_size=128):
         """ Constructor.
         
         Parameters
@@ -134,11 +135,11 @@ class VPG:
         self.memory = TransitionMemory(gamma)
         self.episodes_update = episodes_update
 
-        self.actor_net = ActorNetwork(self.obs_dim, self.act_dim)
+        self.actor_net = ActorNetwork(self.obs_dim, self.act_dim, hidden_size)
         self.optim_actor = optim.Adam(self.actor_net.parameters(), lr=lr)
 
 
-    def learn(self, total_timesteps):
+    def learn(self, total_timesteps, run_neptune):
         """Train the VPG agent.
         
         Parameters
@@ -156,6 +157,9 @@ class VPG:
 
         episodes_counter = 0
 
+        #print(f"{'Timestep':>10} | {'Episode Reward':>15} | {'Last Reward':>12}")
+        #print("-" * 43)
+
         for timestep in range(1, total_timesteps + 1):
 
             # TODO Do one step, put into transition buffer, and store reward in episode_rewards for plotting
@@ -163,9 +167,9 @@ class VPG:
             obs_, reward, terminated, truncated, _ = self.env.step(action)
             self.memory.put(obs, action, reward, logprob)
             episode_rewards.append(reward) # Immediate reward
+            obs = obs_ # Update current obs
 
-            # Update current obs
-            obs = obs_
+            #print(f"{timestep:10d} | {sum(episode_rewards):15.2f} | {reward:12.2f}")
 
             if terminated or truncated:
 
@@ -202,6 +206,9 @@ class VPG:
             if timestep % 500 == 0:
                 episode_reward_plot(overall_rewards, timestep, window_size=5, step_size=1, wait=timestep == total_timesteps)
 
+        # Final call after training: save the final plot (saving_on True)
+        episode_reward_plot(overall_rewards, total_timesteps, window_size=5, step_size=1, wait=False, saving_on=True, run_neptune=run_neptune)
+
 
     @staticmethod
     def calc_actor_loss(logprob_lst, return_lst):
@@ -211,7 +218,7 @@ class VPG:
         # Note: negative sign, as torch optimizers per default perform gradients descent, not ascent
         logprobs = torch.stack(logprob_lst)
         returns = torch.tensor(return_lst, dtype=torch.float32)
-        # returns = (returns - returns.mean()) / (returns.std() + 1e-8)
+        # returns = (returns - returns.mean()) / (returns.std() + 1e-8) # Normalizing cummulative reward
         return -(logprobs*returns).mean()
 
 
@@ -257,19 +264,23 @@ class VPG:
 
 
 if __name__ == '__main__':
+
+    # Initialize Neptune run
+    run = neptune.init_run(project="devilly/rl-cartpole",
+                           api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIzMjExNzM3OC1lM2ZlLTRiYzItYTc0NC03MDI0MTlhMDAzNjkifQ==")
+
+    # Define hyperparameters
+    hp = {"lr": 0.01, "hidden_size": 128, "time_steps":150000}
+    run["hyperparameters"] = hp
+
     env_id = "CartPole-v1"
     _env = gym.make(env_id) # , render_mode="human"
-    vpg = VPG(_env)         # runs VPG.__init__()
-    vpg.learn(150000)
+    vpg = VPG(_env, lr=hp["lr"], hidden_size=hp["hidden_size"]) # runs VPG.__init__()
+    vpg.learn(hp["time_steps"], run)
 
-    visualize_agent(gym.make("CartPole-v1", render_mode='human'), vpg)
+    # Visualize the trained agent
+    test_env = gym.make(env_id, render_mode="human")
+    visualize_agent(test_env, vpg)
 
-##    vpg.save_model("vpg_agent.pth")
-##    vpg.load_model("vpg_agent.pth")  # Load the trained model
-##    obs, _ = _env.reset()
-##    done = False
-##
-##    while not done:
-##        action = vpg.predict(obs)
-##        obs, reward, terminated, truncated, _ = _env.step(action)
-##        done = terminated or truncated
+    # Finalize Neptune run
+    run.stop()

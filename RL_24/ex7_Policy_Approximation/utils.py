@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+import gymnasium as gym
+import neptune
 
 def rolling_window(a, window, step_size):
     """Create a rolling window view of a numpy array.
@@ -21,7 +23,7 @@ def rolling_window(a, window, step_size):
 
 
 fig = None
-def episode_reward_plot(rewards, frame_idx, window_size=5, step_size=1, wait=False):
+def episode_reward_plot(rewards, frame_idx, window_size=5, step_size=1, wait=False, saving_on=False, run_neptune=False):
     """Plot episode rewards rolling window mean, min-max range and standard deviation.
 
     Parameters
@@ -49,7 +51,7 @@ def episode_reward_plot(rewards, frame_idx, window_size=5, step_size=1, wait=Fal
     fig.clf()
     ax = fig.add_subplot(111)
 
-    ax.set_title('Frame %s. Reward: %s' % (frame_idx, np.mean(rewards[-10:])))
+    ax.set_title('Timestep %s. Reward: %s' % (frame_idx, np.mean(rewards[-10:])))
     ax.plot(x, mean, color='blue')
     ax.fill_between(x, mean-std, mean+std, alpha=0.3, facecolor='blue')
     ax.fill_between(x, minimum, maximum, alpha=0.1, facecolor='red')
@@ -57,12 +59,20 @@ def episode_reward_plot(rewards, frame_idx, window_size=5, step_size=1, wait=Fal
     ax.set_ylabel('Reward')
     fig.canvas.draw()
     fig.canvas.flush_events()
+
+    if saving_on:
+        filename = "reward_episode.png"
+        fig.savefig(filename)
+        if run_neptune is not None:  # Ensure run exists globally before using it
+            run_neptune["plots/reward"].upload(filename)  # Upload to Neptune
+
     if wait:
-        time.sleep(10)
+        time.sleep(1)
 
 
 def visualize_agent(env, agent, timesteps=500):
     """ Visualize an agent performing inside a Gym environment. """
+
     obs, _ = env.reset()
     for timestep in range(1, timesteps + 1):
         env.render()

@@ -1,0 +1,30 @@
+{"obj": {"type": "AssignString", "path": ["sys", "description"], "value": ""}, "version": 1, "at": 1741615113.038578}
+{"obj": {"type": "AssignString", "path": ["monitoring", "9e4dfc31", "hostname"], "value": "lstma91"}, "version": 2, "at": 1741615113.0387528}
+{"obj": {"type": "AssignString", "path": ["sys", "hostname"], "value": "lstma91"}, "version": 3, "at": 1741615113.0388405}
+{"obj": {"type": "AssignString", "path": ["monitoring", "9e4dfc31", "pid"], "value": "6358"}, "version": 4, "at": 1741615113.038919}
+{"obj": {"type": "AssignString", "path": ["monitoring", "9e4dfc31", "tid"], "value": "139625995900736"}, "version": 5, "at": 1741615113.0389938}
+{"obj": {"type": "AssignBool", "path": ["sys", "failed"], "value": false}, "version": 6, "at": 1741615113.0390522}
+{"obj": {"type": "ClearStringLog", "path": ["monitoring", "9e4dfc31", "stdout"]}, "version": 7, "at": 1741615113.0391376}
+{"obj": {"type": "ClearStringLog", "path": ["monitoring", "9e4dfc31", "stderr"]}, "version": 8, "at": 1741615113.039202}
+{"obj": {"type": "AssignString", "path": ["source_code", "entrypoint"], "value": "vpg.py"}, "version": 9, "at": 1741615113.039407}
+{"obj": {"type": "UploadFileSet", "path": ["source_code", "files"], "file_globs": ["/tmp/sachinbm/RL/RL_24/ex7_Policy_Approximation/vpg.py"], "reset": "False"}, "version": 10, "at": 1741615113.0394828}
+{"obj": {"type": "UploadFile", "path": ["source_code", "diff"], "ext": "patch", "file_path": null, "tmp_file_name": "source_code_diff-1741615113.072142-2025-03-10_14.58.33.072142.patch", "clean_after_upload": false}, "version": 11, "at": 1741615113.0722725}
+{"obj": {"type": "ConfigFloatSeries", "path": ["monitoring", "9e4dfc31", "cpu"], "min": 0.0, "max": 100.0, "unit": "%"}, "version": 12, "at": 1741615113.1055858}
+{"obj": {"type": "ClearFloatLog", "path": ["monitoring", "9e4dfc31", "cpu"]}, "version": 13, "at": 1741615113.105797}
+{"obj": {"type": "LogStrings", "path": ["monitoring", "9e4dfc31", "stderr"], "values": [{"value": "[neptune] [warning] /tmp/sachinbm/RL/RL_24/ex7_Policy_Approximation/vpg.py:269: NeptuneWarning: Info (NVML): Not Supported. GPU usage metrics may not be reported. For more information, see https://docs.neptune.ai/help/nvml_error/\n", "step": null, "ts": 1741615113.1059566}]}, "version": 14, "at": 1741615113.1060214}
+{"obj": {"type": "ConfigFloatSeries", "path": ["monitoring", "9e4dfc31", "memory"], "min": 0.0, "max": 31.250896453857422, "unit": "GB"}, "version": 15, "at": 1741615113.1061342}
+{"obj": {"type": "ClearFloatLog", "path": ["monitoring", "9e4dfc31", "memory"]}, "version": 16, "at": 1741615113.106183}
+{"obj": {"type": "ConfigFloatSeries", "path": ["monitoring", "9e4dfc31", "gpu"], "min": 0.0, "max": 100.0, "unit": "%"}, "version": 17, "at": 1741615113.1062593}
+{"obj": {"type": "ClearFloatLog", "path": ["monitoring", "9e4dfc31", "gpu"]}, "version": 18, "at": 1741615113.1062975}
+{"obj": {"type": "ConfigFloatSeries", "path": ["monitoring", "9e4dfc31", "gpu_memory"], "min": 0.0, "max": 1.9500732421875, "unit": "GB"}, "version": 19, "at": 1741615113.10637}
+{"obj": {"type": "ClearFloatLog", "path": ["monitoring", "9e4dfc31", "gpu_memory"]}, "version": 20, "at": 1741615113.1064038}
+{"obj": {"type": "ConfigFloatSeries", "path": ["monitoring", "9e4dfc31", "gpu_power"], "min": 0.0, "max": 0, "unit": "W"}, "version": 21, "at": 1741615113.1064692}
+{"obj": {"type": "ClearFloatLog", "path": ["monitoring", "9e4dfc31", "gpu_power"]}, "version": 22, "at": 1741615113.1072793}
+{"obj": {"type": "AssignFloat", "path": ["hyperparameters", "lr"], "value": 0.005}, "version": 23, "at": 1741615113.1086762}
+{"obj": {"type": "AssignInt", "path": ["hyperparameters", "hidden_size"], "value": 256}, "version": 24, "at": 1741615113.1089008}
+{"obj": {"type": "LogFloats", "path": ["monitoring", "9e4dfc31", "memory"], "values": [{"value": 7.613147735595703, "step": null, "ts": 1741615113.107957}]}, "version": 25, "at": 1741615113.1094124}
+{"obj": {"type": "LogFloats", "path": ["monitoring", "9e4dfc31", "gpu_memory"], "values": [{"value": 0.4976806640625, "step": null, "ts": 1741615113.107957}]}, "version": 26, "at": 1741615113.1096523}
+{"obj": {"type": "LogStrings", "path": ["monitoring", "9e4dfc31", "stderr"], "values": [{"value": "/tmp/sachinbm/relexi310/env_relexi/lib64/python3.10/site-packages/torch/autograd/graph.py:823: UserWarning: CUDA initialization: The NVIDIA driver on your system is too old (found version 11040). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:109.)\n  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\n", "step": null, "ts": 1741615114.1090527}]}, "version": 27, "at": 1741615114.1091156}
+{"obj": {"type": "LogFloats", "path": ["monitoring", "9e4dfc31", "cpu"], "values": [{"value": 24.4, "step": null, "ts": 1741615123.1099114}]}, "version": 28, "at": 1741615123.1107304}
+{"obj": {"type": "LogFloats", "path": ["monitoring", "9e4dfc31", "memory"], "values": [{"value": 7.768093109130859, "step": null, "ts": 1741615123.1099114}]}, "version": 29, "at": 1741615123.1109571}
+{"obj": {"type": "LogFloats", "path": ["monitoring", "9e4dfc31", "gpu_memory"], "values": [{"value": 0.5391845703125, "step": null, "ts": 1741615123.1099114}]}, "version": 30, "at": 1741615123.1110988}
